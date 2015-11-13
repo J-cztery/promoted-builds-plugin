@@ -40,7 +40,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Stack;
 import org.kohsuke.stapler.export.Exported;
-
+import hudson.EnvVars;
 /**
  * {@link PromotionCondition} that tests if certain downstream projects have passed.
  * 
@@ -78,9 +78,9 @@ public class DownstreamPassCondition extends PromotionCondition {
         Badge badge = new Badge();
 
         PseudoDownstreamBuilds pdb = build.getAction(PseudoDownstreamBuilds.class);
-
+        EnvVars buildEnvironment = new EnvVars(build.getBuildVariables());
         OUTER:
-        for (AbstractProject<?,?> j : getJobList(build.getProject().getParent())) {
+        for (AbstractProject<?,?> j : getJobList(build.getProject().getParent(), buildEnvironment)) {
             for( AbstractBuild<?,?> b : build.getDownstreamBuilds(j) ) {
                 if (!b.isBuilding()) {
                     Result r = b.getResult();
@@ -111,37 +111,68 @@ public class DownstreamPassCondition extends PromotionCondition {
     }
 
     /**
+     *  @deprecated use {@link #getJobList(hudson.model.ItemGroup, hudson.model.AbstractProject, hudson.EnvVars)} 
      * List of downstream jobs that we need to monitor.
      *
      * @return never null.
      */
-    public List<AbstractProject<?,?>> getJobList(ItemGroup context) {
+    public List<AbstractProject<?,?>> getJobList(ItemGroup context){
+    	return getJobList(context, null);
+    }
+    /**
+     * 
+     * List of downstream jobs that we need to monitor resolving variables.
+     * @since 2.33
+     * @return never null.
+     */
+    public List<AbstractProject<?,?>> getJobList(ItemGroup context, EnvVars buildEnvironment) {
         List<AbstractProject<?,?>> r = new ArrayList<AbstractProject<?,?>>();
-        for (String name : Util.tokenize(jobs,",")) {
+        
+        String expandedJobs = getExpandedJobs(jobs, buildEnvironment);
+        
+        for (String name : Util.tokenize(expandedJobs,",")) {
             AbstractProject job = Hudson.getInstance().getItem(name.trim(), context, AbstractProject.class);
             if(job!=null)   r.add(job);
         }
         return r;
     }
 
-    public boolean contains(ItemGroup ctx, AbstractProject<?,?> job) {
+    private static String getExpandedJobs(String jobs, EnvVars environment){
+    	if (environment == null) {
+    		return jobs;
+    	}
+    	return environment.expand(jobs);
+    }
+    /**
+     * @deprecated use {@link #contains(hudson.model.ItemGroup, hudson.model.AbstractProject, hudson.EnvVars)} 
+     */
+    public boolean contains(ItemGroup ctx, AbstractProject<?,?> job){
+    	return contains(ctx, job, null);
+    }
+    /**
+     * Checks if the configured jobs property contains job. Resolves jobs property first. 
+     * @since 2.33 
+     */
+    public boolean contains(ItemGroup ctx, AbstractProject<?,?> job, EnvVars environment) {
+
+    	String expandedJobs = getExpandedJobs(jobs, environment);
+    	
         // quick rejection test
-        if(!jobs.contains(job.getName())) return false;
+        if(!expandedJobs.contains(job.getName())) return false;
 
         String name = job.getFullName();
-        for (AbstractProject<?, ?> project : getJobList(ctx)) {
+        for (AbstractProject<?, ?> project : getJobList(ctx, environment)) {
             if (project.getFullName().equals(name)) return true;
         }
         return false;
     }
-
-
+      
     /**
      * Short-cut for {@code getJobList().contains(job)}.
      * @deprecated use {@link #contains(hudson.model.ItemGroup, hudson.model.AbstractProject)}
      */
     public boolean contains(AbstractProject<?,?> job) {
-        return contains(Jenkins.getInstance(), job);
+        return contains(Jenkins.getInstance(), job, null);
     }
 
     public static final class Badge extends PromotionBadge {
@@ -219,6 +250,7 @@ public class DownstreamPassCondition extends PromotionCondition {
         @Override
         public void onCompleted(AbstractBuild<?,?> build, TaskListener listener) {
             // this is not terribly efficient,
+        	EnvVars buildEnvironment = new EnvVars(build.getBuildVariables());
             for(AbstractProject<?,?> j : Hudson.getInstance().getAllItems(AbstractProject.class)) {
                 boolean warned = false; // used to avoid warning for the same project more than once.
 
@@ -229,7 +261,7 @@ public class DownstreamPassCondition extends PromotionCondition {
                         for (PromotionCondition cond : p.conditions) {
                             if (cond instanceof DownstreamPassCondition) {
                                 DownstreamPassCondition dpcond = (DownstreamPassCondition) cond;
-                                if(dpcond.contains(j.getParent(), build.getParent())) {
+                                if(dpcond.contains(j.getParent(), build.getParent(), buildEnvironment)) {
                                     considerPromotion = true;
                                     break;
                                 }
