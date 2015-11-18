@@ -259,7 +259,7 @@ public final class PromotionProcess extends AbstractProject<PromotionProcess,Pro
     public boolean isVisible(){
     	if (isVisible == null) return true;
     	
-    	AbstractProject<?, ?> job = getRootProject();
+    	AbstractProject<?, ?> job = getOwner();
     	
     	if (job == null) return true;
     	
