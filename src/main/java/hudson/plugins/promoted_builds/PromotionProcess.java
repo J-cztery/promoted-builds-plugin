@@ -2,6 +2,7 @@ package hudson.plugins.promoted_builds;
 
 import antlr.ANTLRException;
 import hudson.BulkChange;
+import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Util;
 import hudson.model.AbstractBuild;
@@ -22,11 +23,14 @@ import hudson.model.ItemGroup;
 import hudson.model.JDK;
 import hudson.model.Job;
 import hudson.model.Label;
+import hudson.model.ParameterDefinition;
 import hudson.model.ParametersAction;
+import hudson.model.ParametersDefinitionProperty;
 import hudson.model.PermalinkProjectAction.Permalink;
 import hudson.model.Queue.Item;
 import hudson.model.Run;
 import hudson.model.Saveable;
+import hudson.model.StringParameterValue;
 import hudson.model.labels.LabelAtom;
 import hudson.model.labels.LabelExpression;
 import hudson.plugins.promoted_builds.conditions.ManualCondition.ManualApproval;
@@ -78,6 +82,10 @@ public final class PromotionProcess extends AbstractProject<PromotionProcess,Pro
      * The label that promotion process can be run on.
      */
     public String assignedLabel;
+    /**
+     * Tells if this promotion should be hidden.
+     */
+    public String isVisible;
     
     private List<BuildStep> buildSteps = new ArrayList<BuildStep>();
 
@@ -127,6 +135,7 @@ public final class PromotionProcess extends AbstractProject<PromotionProcess,Pro
         } else {
             assignedLabel = null;
         }
+        isVisible = c.getString("isVisible");
         save();
     }
 
@@ -191,7 +200,7 @@ public final class PromotionProcess extends AbstractProject<PromotionProcess,Pro
     public List<BuildStep> getBuildSteps() {
         return buildSteps;
     }
-
+   
     /**
      * Gets the textual representation of the assigned label as it was entered by the user.
      */
@@ -243,6 +252,49 @@ public final class PromotionProcess extends AbstractProject<PromotionProcess,Pro
     	return getIcon(icon);
     }
 
+    public String getIsVisible(){
+    	return isVisible;
+    }
+    
+    public boolean isVisible(){
+    	if (isVisible == null) return true;
+    	
+    	AbstractProject<?, ?> job = getRootProject();
+    	
+    	if (job == null) return true;
+    	
+    	String expandedIsVisible = isVisible;
+    	EnvVars environment = getDefaultParameterValuesAsEnvVars(job);
+    	if (environment != null){
+    		expandedIsVisible = environment.expand(expandedIsVisible);
+    	}
+   	
+    	if (expandedIsVisible == null){
+    		return true;
+    	}
+    	if (expandedIsVisible.toLowerCase().equals("false")){
+    		return false;
+    	}
+    	return true;
+    }
+    private static EnvVars getDefaultParameterValuesAsEnvVars(AbstractProject owner) {
+    	EnvVars envVars = null;
+		ParametersDefinitionProperty parametersDefinitionProperty = (ParametersDefinitionProperty)owner.getProperty(ParametersDefinitionProperty.class);
+		if (parametersDefinitionProperty!=null){
+			envVars = new EnvVars();
+			for (ParameterDefinition parameterDefinition: parametersDefinitionProperty.getParameterDefinitions()){
+				ParameterValue defaultParameterValue = parameterDefinition.getDefaultParameterValue();
+				if (defaultParameterValue!=null){
+					if (defaultParameterValue instanceof StringParameterValue){
+						envVars.put(parameterDefinition.getName(), ((StringParameterValue)defaultParameterValue).value);
+					}
+				}
+			}
+			EnvVars.resolve(envVars);
+		}
+		
+		return envVars;
+    }
     /**
      * Handle compatibility with pre-1.8 configs.
      * 
