@@ -199,8 +199,7 @@ public final class PromotionProcess extends AbstractProject<PromotionProcess,Pro
 
     public List<BuildStep> getBuildSteps() {
         return buildSteps;
-    }
-   
+    }   
     /**
      * Gets the textual representation of the assigned label as it was entered by the user.
      */
