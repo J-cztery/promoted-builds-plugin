@@ -78,7 +78,11 @@ public final class JobPropertyImpl extends JobProperty<AbstractProject<?,?>> imp
         this.owner = owner;
         init();
     }
-
+    public JobPropertyImpl(JobPropertyImpl other, AbstractProject<?,?> owner) throws Descriptor.FormException, IOException {
+        this.owner = owner;
+        this.activeProcessNames.addAll(other.activeProcessNames);
+        loadAllProcesses(other.getRootDir()); 
+    }
     private JobPropertyImpl(StaplerRequest req, JSONObject json) throws Descriptor.FormException, IOException {
         // a hack to get the owning AbstractProject.
         // this is needed here so that we can load items
@@ -112,7 +116,15 @@ public final class JobPropertyImpl extends JobProperty<AbstractProject<?,?>> imp
         }
         init();
     }
-
+    private void loadAllProcesses(File rootDir) throws IOException {
+    	File[] subdirs = rootDir.listFiles(new FileFilter() {
+                public boolean accept(File child) {
+                    return child.isDirectory();
+                }
+            });
+    	
+    	loadProcesses(subdirs);
+    }
     private void init() throws IOException {
         // load inactive processes
         File[] subdirs = getRootDir().listFiles(new FileFilter() {
@@ -120,7 +132,10 @@ public final class JobPropertyImpl extends JobProperty<AbstractProject<?,?>> imp
                 return child.isDirectory() && !isActiveProcessNameIgnoreCase(child.getName());
             }
         });
-        if(subdirs!=null) {
+        loadProcesses(subdirs);
+    }
+	private void loadProcesses(File[] subdirs) throws IOException {
+		if(subdirs!=null) {
             for (File subdir : subdirs) {
                 try {
                     PromotionProcess p = (PromotionProcess) Items.load(this, subdir);
@@ -132,7 +147,7 @@ public final class JobPropertyImpl extends JobProperty<AbstractProject<?,?>> imp
         }
 
         buildActiveProcess();
-    }
+	}
 
     /**
      * Adds a new promotion process of the given name.
@@ -201,7 +216,11 @@ public final class JobPropertyImpl extends JobProperty<AbstractProject<?,?>> imp
             // ensure that the name casing matches what's given in the activeProcessName
             // this is because in case insensitive file system, we may end up resolving
             // to a directory name that differs only in their case.
-            p.renameTo(getActiveProcessName(p.getName()));
+            String processName = p.getName();
+            String activeProcessName = getActiveProcessName(processName);
+            if (!activeProcessName.equals(processName)){
+            	p.renameTo(activeProcessName);
+            }
         }
     }
 

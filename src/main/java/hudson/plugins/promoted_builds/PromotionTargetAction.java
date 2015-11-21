@@ -15,7 +15,7 @@ public class PromotionTargetAction extends InvisibleAction {
     private final int number;
 
     public PromotionTargetAction(AbstractBuild<?,?> build) {
-        jobName = build.getProject().getFullName();
+        jobName = build.getParent().getFullName();
         number = build.getNumber();
     }
 
@@ -26,10 +26,12 @@ public class PromotionTargetAction extends InvisibleAction {
     }
 
     public AbstractBuild<?,?> resolve(PromotionProcess parent) {
-    	return resolve();
+        AbstractProject<?,?> j = parent.getOwner();
+        if (j==null)    return null;
+        return j.getBuildByNumber(number);
     }
 
     public AbstractBuild<?,?> resolve(Promotion parent) {
-    	return resolve();
+        return resolve(parent.getParent());
     }
 }
