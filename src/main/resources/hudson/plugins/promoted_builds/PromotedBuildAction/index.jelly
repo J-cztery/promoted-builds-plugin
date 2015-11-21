@@ -8,7 +8,7 @@
       <j:forEach var="p" items="${it.promotions}">
       	<j:if test="${p.getProcess().isVisible()}">
 	        <h2>
-	          <img src="${resURL}/plugin/promoted-builds/icons/32x32/${p.getProcess().getIcon()}.png"/> <a href="../process/${p.name}" class="model-link">${p.name}</a>
+	          <img src="${resURL}/plugin/promoted-builds/icons/32x32/${p.getProcess().getIcon()}.png"/> <a href="../../promotion/process/${p.name}" class="model-link">${p.name}</a>
 	        </h2>
 	
 	        <!-- history of this promotion -->
@@ -80,7 +80,7 @@
       <j:forEach var="p" items="${it.pendingPromotions}">
 	      <j:if test="${p.isVisible()}">
 	        <h2>
-	          <img src="${resURL}/plugin/promoted-builds/icons/32x32/${p.getIcon()}.png"/> <a href="../process/${p.name}" class="model-link">${p.name}</a>
+	          <img src="${resURL}/plugin/promoted-builds/icons/32x32/${p.getIcon()}.png"/> <a href="../../promotion/process/${p.name}" class="model-link">${p.name}</a>
 	        </h2>
 	          <j:choose>
 	            <j:when test="${it.getPromotionProcess(p.name)!=null and it.canPromote()}">
